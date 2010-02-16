@@ -329,7 +329,9 @@ static void *worker_libevent(void *arg) {
     pthread_cond_signal(&init_cond);
     pthread_mutex_unlock(&init_lock);
 
+fprintf(stderr, "Thread %d starting loop", me->thread_id);
     event_base_loop(me->base, 0);
+fprintf(stderr, "Thread %d end loop", me->thread_id);
     return NULL; 
 }
 

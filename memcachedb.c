@@ -2448,10 +2448,6 @@ static void remove_pidfile(const char *pid_file) {
 
 }
 
-static void get_options() {
-    
-}
-
 void sig_handler(const int sig, const short which, void *arg) {
     int ret;
     if (sig != SIGTERM && sig != SIGQUIT && sig != SIGINT) {
@@ -2482,39 +2478,14 @@ static void setup_sig_handlers() {
     }
 }
 
-static void get_options() {
-    
-}
+bool daemonize = false;
+int maxcore = 0;
+char *username = NULL;
+char *pid_file = NULL;
 
-int main (int argc, char **argv) {
+static void get_options(int argc, char **argv) {
     int c;
-    struct in_addr addr;
-    bool daemonize = false;
-    int maxcore = 0;
-    char *username = NULL;
-    char *pid_file = NULL;
-    struct passwd *pw;
-    struct sigaction sa;
-    struct rlimit rlim;
-    /* listening socket */
-    static int *l_socket = NULL;
-
-    /* udp socket */
-    static int *u_socket = NULL;
-    static int u_socket_count = 0;
-
     char *portstr = NULL;
-
-    /* init settings */
-    settings_init();
-    bdb_settings_init();
-
-    /* get Berkeley DB version*/
-    db_version(&(bdb_version.majver), &(bdb_version.minver), &(bdb_version.patch));
-
-    /* set stderr non-buffering (for running under, say, daemontools) */
-    setbuf(stderr, NULL);
-
     /* process arguments */
     while ((c = getopt(argc, argv, "a:U:p:s:c:hivl:dru:P:t:b:f:H:G:B:m:A:L:C:T:e:D:NEXMSR:O:n:")) != -1) {
         switch (c) {
@@ -2674,6 +2645,10 @@ int main (int argc, char **argv) {
             exit(EXIT_FAILURE);
         }
     }
+}
+
+void set_limits() {
+    struct rlimit rlim;
 
     if (maxcore != 0) {
         struct rlimit rlim_new;
@@ -2720,6 +2695,35 @@ int main (int argc, char **argv) {
             exit(EXIT_FAILURE);
         }
     }
+    
+}
+
+int main (int argc, char **argv) {
+    struct in_addr addr;
+    struct passwd *pw;
+    struct sigaction sa;
+    /* listening socket */
+    static int *l_socket = NULL;
+
+    /* udp socket */
+    static int *u_socket = NULL;
+    static int u_socket_count = 0;
+
+
+    /* init settings */
+    settings_init();
+    bdb_settings_init();
+
+    /* get Berkeley DB version*/
+    db_version(&(bdb_version.majver), &(bdb_version.minver), &(bdb_version.patch));
+
+    /* set stderr non-buffering (for running under, say, daemontools) */
+    setbuf(stderr, NULL);
+
+    get_options(argc,argv);
+
+    set_limits();
+
 
     /* daemonize if requested */
     /* if we want to ensure our ability to dump core, don't chdir to / */
@@ -2819,15 +2823,15 @@ int main (int argc, char **argv) {
 
     /* enter the event loop */
     event_base_loop(main_base, 0);
-    
-    fprintf(stderr, "Event loop exited\n");
-    
+
+    fprintf(stderr, "event loop exited\n");
+
     /* cleanup bdb staff */
     fprintf(stderr, "try to clean up bdb resource...\n");
     bdb_chkpoint();
     bdb_db_close();
     bdb_env_close();
-    
+
     /* remove the PID file if we're a daemon */
     if (daemonize)
         remove_pidfile(pid_file);
