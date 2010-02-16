@@ -145,7 +145,7 @@ AC_C_SOCKLEN_T
 dnl Check whether the user wants threads or not
 AC_ARG_ENABLE(threads,
   [AS_HELP_STRING([--enable-threads],[support multithreaded execution])])
-if test "x$enable_threads" == "xyes"; then
+if test "x$enable_threads" = "xyes"; then
   AC_SEARCH_LIBS([pthread_create], [pthread], [AC_DEFINE([USE_THREADS],,[Define this if you want to use pthreads])] ,[AC_MSG_ERROR(cannot find libpthread.so)])
 fi
 
