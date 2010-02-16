@@ -5,3 +5,4 @@ memcachedb
 config.*
 stamp-h1
 .deps
+autom4te.cache/
