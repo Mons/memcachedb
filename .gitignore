@@ -1,0 +1,7 @@
+*.o
+testenv
+Makefile
+memcachedb
+config.*
+stamp-h1
+.deps

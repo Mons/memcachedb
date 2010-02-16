@@ -364,6 +364,39 @@ void start_dl_detect_thread(void){
         }
     }
 }
+void stop_chkpoint_thread(void){
+    if (bdb_settings.chkpoint_val > 0){
+        /* Start a checkpoint thread. */
+        if ((errno = pthread_cancel(chk_ptid)) != 0) {
+            if (errno == ESRCH) return;
+            fprintf(stderr, "failed stopping checkpoint thread (%d): %s\n", errno, strerror(errno));
+        }
+    }
+}
+void stop_memp_trickle_thread(void){
+    if (bdb_settings.memp_trickle_val > 0){
+        if ((errno = pthread_cancel(mtri_ptid)) != 0) {
+            if (errno == ESRCH) return;
+            fprintf(stderr,"failed stopping memp_trickle thread(%d): %s\n", errno, strerror(errno));
+        }
+    }
+
+}
+void stop_dl_detect_thread(void){
+    if (bdb_settings.dldetect_val > 0){
+        if ((errno = pthread_cancel(dld_ptid)) != 0) {
+            if (errno == ESRCH) return;
+            fprintf(stderr,"failed stopping deadlock thread(%d): %s\n", errno, strerror(errno));
+        }
+    }
+}
+
+void stop_misc_threads(void){
+    stop_chkpoint_thread();
+    stop_memp_trickle_thread();
+    stop_dl_detect_thread();
+}
+
 
 static void *bdb_chkpoint_thread(void *arg)
 {
@@ -374,7 +407,7 @@ static void *bdb_chkpoint_thread(void *arg)
         dbenv->errx(dbenv, "checkpoint thread created: %lu, every %d seconds", 
                            (u_long)pthread_self(), bdb_settings.chkpoint_val);
     }
-    for (;; sleep(bdb_settings.chkpoint_val)) {
+    for (;!daemon_quit; sleep(bdb_settings.chkpoint_val)) {
         if ((ret = dbenv->txn_checkpoint(dbenv, 0, 0, 0)) != 0) {
             dbenv->err(dbenv, ret, "checkpoint thread");
         }
@@ -393,7 +426,7 @@ static void *bdb_memp_trickle_thread(void *arg)
                            (u_long)pthread_self(), bdb_settings.memp_trickle_val,
                            bdb_settings.memp_trickle_percent);
     }
-    for (;; sleep(bdb_settings.memp_trickle_val)) {
+    for (;!daemon_quit; sleep(bdb_settings.memp_trickle_val)) {
         if ((ret = dbenv->memp_trickle(dbenv, bdb_settings.memp_trickle_percent, &nwrotep)) != 0) {
             dbenv->err(dbenv, ret, "memp_trickle thread");
         }
@@ -412,10 +445,11 @@ static void *bdb_dl_detect_thread(void *arg)
                            (u_long)pthread_self(), bdb_settings.dldetect_val);
     }
     while (!daemon_quit) {
-        t.tv_sec = 0;
-        t.tv_usec = bdb_settings.dldetect_val;
+        t.tv_sec = bdb_settings.dldetect_val / 1000000;
+        t.tv_usec = bdb_settings.dldetect_val % 1000000;
         (void)dbenv->lock_detect(dbenv, 0, DB_LOCK_YOUNGEST, NULL);
         /* select is a more accurate sleep timer */
+        dbenv->errx(dbenv, "deadlock detecting thread: done (daemon_quit=%d)",daemon_quit);
         (void)select(0, NULL, NULL, NULL, &t);
     }
     return (NULL);

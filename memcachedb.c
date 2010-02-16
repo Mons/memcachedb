@@ -112,6 +112,11 @@ int daemon_quit = 0;
 static conn *listen_conn = NULL;
 static struct event_base *main_base;
 
+/** termination signals **/
+#define TERM_SIG_COUNT 3
+int termsignal[] = { SIGINT, SIGQUIT, SIGTERM };
+struct event termsigevent[TERM_SIG_COUNT];
+
 #define TRANSMIT_COMPLETE   0
 #define TRANSMIT_INCOMPLETE 1
 #define TRANSMIT_SOFT_ERROR 2
@@ -2443,9 +2448,11 @@ static void remove_pidfile(const char *pid_file) {
 
 }
 
-/* for safely exit, make sure to do checkpoint*/
-static void sig_handler(const int sig)
-{
+static void get_options() {
+    
+}
+
+void sig_handler(const int sig, const short which, void *arg) {
     int ret;
     if (sig != SIGTERM && sig != SIGQUIT && sig != SIGINT) {
         return;
@@ -2456,16 +2463,27 @@ static void sig_handler(const int sig)
     daemon_quit = 1;
     fprintf(stderr, "Signal(%d) received, try to exit daemon gracefully..\n", sig);
 
-    /* exit event loop first */
-    fprintf(stderr, "exit event base...");    
-    ret = event_base_loopexit(main_base, 0);
-    if (ret == 0)
-      fprintf(stderr, "done.\n");
-    else
-      fprintf(stderr, "error.\n");
+    stop_misc_threads();
 
-    /* make sure deadlock detect loop is quit*/
-    sleep(2);
+    struct timeval exit_timeout = { 0, 100000}; // Wait 0.1 second for loop exit
+    ret = event_base_loopexit(main_base, &exit_timeout);
+    if (ret != 0) fprintf(stderr, "loop exit error.\n");
+    return;
+}
+
+static void setup_sig_handlers() {
+    int i;
+    for (i=0; i < TERM_SIG_COUNT; i++) {
+        signal_set(&termsigevent[i],termsignal[i],sig_handler,NULL);
+        if (signal_add(&termsigevent[i],NULL) == -1 ) {
+            fprintf(stderr, "signal %d add failed\n", termsignal[i]);
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+static void get_options() {
+    
 }
 
 int main (int argc, char **argv) {
@@ -2486,14 +2504,6 @@ int main (int argc, char **argv) {
     static int u_socket_count = 0;
 
     char *portstr = NULL;
-
-    /* register signal callback */
-    if (signal(SIGTERM, sig_handler) == SIG_ERR)
-        fprintf(stderr, "can not catch SIGTERM\n");
-    if (signal(SIGQUIT, sig_handler) == SIG_ERR)
-        fprintf(stderr, "can not catch SIGQUIT\n");
-    if (signal(SIGINT,  sig_handler) == SIG_ERR)
-        fprintf(stderr, "can not catch SIGINT\n");
 
     /* init settings */
     settings_init();
@@ -2804,8 +2814,13 @@ int main (int argc, char **argv) {
     start_memp_trickle_thread();
     start_dl_detect_thread();
 
+    /* After all forks but before event loop register signal event handlers */
+    setup_sig_handlers();
+
     /* enter the event loop */
     event_base_loop(main_base, 0);
+    
+    fprintf(stderr, "Event loop exited\n");
     
     /* cleanup bdb staff */
     fprintf(stderr, "try to clean up bdb resource...\n");
