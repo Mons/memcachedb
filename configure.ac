@@ -142,12 +142,17 @@ fi
 
 AC_C_SOCKLEN_T
 
+dnl Don't use threads for workers now. Current usage of libevent in threads is broken
 dnl Check whether the user wants threads or not
-AC_ARG_ENABLE(threads,
-  [AS_HELP_STRING([--enable-threads],[support multithreaded execution])])
-if test "x$enable_threads" = "xyes"; then
-  AC_SEARCH_LIBS([pthread_create], [pthread], [AC_DEFINE([USE_THREADS],,[Define this if you want to use pthreads])] ,[AC_MSG_ERROR(cannot find libpthread.so)])
-fi
+dnl AC_ARG_ENABLE(threads,
+dnl   [AS_HELP_STRING([--enable-threads],[support multithreaded execution])])
+dnl if test "x$enable_threads" = "xyes"; then
+dnl   AC_SEARCH_LIBS([pthread_create], [pthread], [AC_DEFINE([USE_THREADS],,[Define this if you want to use pthreads])] ,[AC_MSG_ERROR(cannot find libpthread.so)])
+dnl fi
+dnl 
+
+dnl But pthread_create is needed for helper threads, so always check for it
+AC_SEARCH_LIBS([pthread_create], [pthread])
 
 AC_CONFIG_FILES([Makefile doc/Makefile tools/Makefile conf/Makefile])
 AC_OUTPUT
