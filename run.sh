@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
--d testenv || mkdir testenv
-./memcachedb -H ./testenv -v -p 10001 -D 1000 -C 1 -T 1 -t 2
+[ -d ./testenv ] || mkdir ./testenv
+./memcachedb -x -H ./testenv -p 10001 -D 1000 -C 1 -T 1
+# -t 1
 
 # ./memcachedb -p21201 -d -r -H ./testenv -N -E -v >log 2>&1
 #./memcachedb -p21201 -d -r -H ./testenv0 -N -R 127.0.0.1:31201 -M -n 2 -v >log_m 2>&1

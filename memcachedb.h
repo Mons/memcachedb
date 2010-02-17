@@ -124,6 +124,7 @@ struct settings {
     int udpport;
     char *inter;
     int verbose;
+    int debug;
     char *socketpath;   /* path to unix socket if using local socket */
     int access;  /* access mask (a la chmod) for unix domain socket */
     int num_threads;        /* number of libevent threads to run */
@@ -406,3 +407,7 @@ int   mt_store_item(item *item, int comm);
 extern DB_ENV *env;
 extern DB *dbp;
 extern int daemon_quit;
+
+#define WHERESTR    " at %s line %d.\n"
+#define WHEREARG    __FILE__, __LINE__
+#define warn(...)   do{ fprintf(stderr, __VA_ARGS__); fprintf(stderr, WHERESTR, WHEREARG); } while(0)

@@ -18,7 +18,7 @@ import memcache
 
 class MemcacheDBTestCase(unittest.TestCase):
   def setUp(self):
-    self.mc = memcache.Client(['127.0.0.1:21201'], debug=1)
+    self.mc = memcache.Client(['127.0.0.1:10001'], debug=1)
 
   def tearDown(self):
     self.mc.disconnect_all()
@@ -72,12 +72,12 @@ class MemcacheDBTestCase(unittest.TestCase):
   def testDbCheckpointCmd(self):
     self.assert_(self.mc.db_checkpoint())
 		
-  def testRepSetPriorityCmd(self):
-		self.assert_(self.mc.rep_set_priority(200))
-		
-  def testRepSetAckPolicy(self):
-		self.assert_(self.mc.rep_set_ack_policy(5))
-		
+#  def testRepSetPriorityCmd(self):
+#		self.assert_(self.mc.rep_set_priority(200))
+#		
+#  def testRepSetAckPolicy(self):
+#		self.assert_(self.mc.rep_set_ack_policy(5))
+#		
   def testRgetCmd(self):
     self.assert_(self.mc.set("prefix_abcs", "1111"))
     self.assert_(self.mc.set("prefix_abds", "2222"))

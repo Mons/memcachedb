@@ -151,6 +151,7 @@ static void settings_init(void) {
     settings.item_buf_size = 2 * 1024;     /* default is 2KB */
     settings.maxconns = 4 * 1024;         /* to limit connections-related memory to about 5MB * 4 */
     settings.verbose = 0;
+    settings.debug = 0;
     settings.socketpath = NULL;       /* by default, not using a unix socket */
 #ifdef USE_THREADS
     settings.num_threads = 4;
@@ -618,7 +619,7 @@ static void out_string(conn *c, const char *str) {
 
     assert(c != NULL);
 
-    if (settings.verbose > 1)
+    if (settings.verbose > 1 || settings.debug)
         fprintf(stderr, ">%d %s\n", c->sfd, str);
 
     len = strlen(str);
@@ -977,7 +978,7 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
                        break;
                    }
 
-                if (settings.verbose > 1)
+                if (settings.verbose > 1 || settings.debug)
                     fprintf(stderr, ">%d sending key %s\n", c->sfd, ITEM_key(it));
 
                 stats_get_hits++;
@@ -1005,7 +1006,7 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
     c->icurr = c->ilist;
     c->ileft = i;
 
-    if (settings.verbose > 1)
+    if (settings.verbose > 1 || settings.debug)
         fprintf(stderr, ">%d END\n", c->sfd);
 
     /*
@@ -1136,7 +1137,7 @@ static inline void process_rget_command(conn *c, token_t *tokens, size_t ntokens
                break;
            }
         
-        if (settings.verbose > 1)
+        if (settings.verbose > 1 || settings.debug)
             fprintf(stderr, ">%d sending key %s\n", c->sfd, ITEM_key(it));
         
         *(c->ilist + i) = it;
@@ -1163,7 +1164,7 @@ static inline void process_rget_command(conn *c, token_t *tokens, size_t ntokens
     c->icurr = c->ilist;
     c->ileft = i;
 
-    if (settings.verbose > 1)
+    if (settings.verbose > 1 || settings.debug)
         fprintf(stderr, ">%d END\n", c->sfd);
 
     /*
@@ -1368,7 +1369,7 @@ static void process_rep_command(conn *c, token_t *tokens, const size_t ntokens) 
 
     assert(c != NULL);
 
-    if (bdb_settings.is_replicated){
+    if (bdb_settings.is_replicated) {
         if (ntokens == 3 && strcmp(tokens[COMMAND_TOKEN].value, "rep_set_priority") == 0){
             int priority;
             priority = strtoul(tokens[1].value, NULL, 10);
@@ -1403,7 +1404,7 @@ static void process_rep_command(conn *c, token_t *tokens, const size_t ntokens) 
             out_string(c, "ERROR");
         }
     } else {
-        out_string(c, "ERROR");
+        out_string(c, "ERROR replication not enabled");
     }
     return;
 }
@@ -1460,7 +1461,7 @@ static void process_command(conn *c, char *command) {
 
     assert(c != NULL);
 
-    if (settings.verbose > 1)
+    if (settings.verbose > 1 || settings.debug)
         fprintf(stderr, "<%d %s\n", c->sfd, command);
 
     /*
@@ -2274,6 +2275,7 @@ static void usage(void) {
            "-b <num>      item size smaller than <num> will use fast memory alloc, default is 2048 bytes\n"
            "-v            verbose (print errors/warnings while in event loop)\n"
            "-vv           very verbose (also print client commands/reponses)\n"
+           "-x            debug mode (print debug info)\n"
            "-h            print this help and exit\n"
            "-i            print license info\n"
            "-P <file>     save PID in <file>, only used with -d option\n"
@@ -2487,7 +2489,7 @@ static void get_options(int argc, char **argv) {
     int c;
     char *portstr = NULL;
     /* process arguments */
-    while ((c = getopt(argc, argv, "a:U:p:s:c:hivl:dru:P:t:b:f:H:G:B:m:A:L:C:T:e:D:NEXMSR:O:n:")) != -1) {
+    while ((c = getopt(argc, argv, "a:U:p:s:c:hivxl:dru:P:t:b:f:H:G:B:m:A:L:C:T:e:D:NEXMSR:O:n")) != -1) {
         switch (c) {
         case 'a':
             /* access for unix domain socket, as octal mask (like chmod)*/
@@ -2514,6 +2516,9 @@ static void get_options(int argc, char **argv) {
             exit(EXIT_SUCCESS);
         case 'v':
             settings.verbose++;
+            break;
+        case 'x':
+            settings.debug++;
             break;
         case 'l':
             settings.inter= strdup(optarg);
@@ -2822,9 +2827,17 @@ int main (int argc, char **argv) {
     setup_sig_handlers();
 
     /* enter the event loop */
+#ifdef DEBUG_LOOP
+    fprintf(stderr, "Thread %d (main) starting loop\n", pthread_self());
+    int ret;
+    while(!daemon_quit) {
+        ret = event_base_loop(main_base, EVLOOP_ONCE);
+        fprintf(stderr, "Thread %d (main) got event(%d)\n", pthread_self(), ret);
+    }
+    fprintf(stderr, "Thread %d (main) event loop exited\n", pthread_self());
+#else
     event_base_loop(main_base, 0);
-
-    fprintf(stderr, "event loop exited\n");
+#endif
 
     /* cleanup bdb staff */
     fprintf(stderr, "try to clean up bdb resource...\n");

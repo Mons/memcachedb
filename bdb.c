@@ -411,7 +411,8 @@ static void *bdb_chkpoint_thread(void *arg)
         if ((ret = dbenv->txn_checkpoint(dbenv, 0, 0, 0)) != 0) {
             dbenv->err(dbenv, ret, "checkpoint thread");
         }
-        dbenv->errx(dbenv, "checkpoint thread: a txn_checkpoint is done");
+        if (settings.verbose > 0)
+            dbenv->errx(dbenv, "checkpoint thread: a txn_checkpoint is done");
     }
     return (NULL);
 }
@@ -430,7 +431,8 @@ static void *bdb_memp_trickle_thread(void *arg)
         if ((ret = dbenv->memp_trickle(dbenv, bdb_settings.memp_trickle_percent, &nwrotep)) != 0) {
             dbenv->err(dbenv, ret, "memp_trickle thread");
         }
-        dbenv->errx(dbenv, "memp_trickle thread: writing %d dirty pages", nwrotep);
+        if (settings.verbose > 0)
+            dbenv->errx(dbenv, "memp_trickle thread: writing %d dirty pages", nwrotep);
     }
     return (NULL);
 }
@@ -449,7 +451,8 @@ static void *bdb_dl_detect_thread(void *arg)
         t.tv_usec = bdb_settings.dldetect_val % 1000000;
         (void)dbenv->lock_detect(dbenv, 0, DB_LOCK_YOUNGEST, NULL);
         /* select is a more accurate sleep timer */
-        dbenv->errx(dbenv, "deadlock detecting thread: done (daemon_quit=%d)",daemon_quit);
+        if (settings.verbose > 0)
+            dbenv->errx(dbenv, "deadlock detecting thread: done (daemon_quit=%d)",daemon_quit);
         (void)select(0, NULL, NULL, NULL, &t);
     }
     return (NULL);
